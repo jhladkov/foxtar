@@ -1,0 +1,9 @@
+app/css/
+node_modules
+/dist
+package-lock.json
+/.idea
+.project
+.classpath
+.c9/
+app/js/libs.min.js
