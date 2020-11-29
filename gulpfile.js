@@ -1,54 +1,92 @@
-var gulp = require('gulp'),
-    scss = require('gulp-sass'),
-    browserSync = require('browser-sync'),
-    uglifyjs = require('gulp-uglifyjs'),
-    concat = require('gulp-concat'),
-    rename = require('gulp-rename'),
-    autoprefixer = require('gulp-autoprefixer');
 
-gulp.task('scss', function(){
-    return gulp.src('app/scss/**/*.scss')
-            .pipe(scss({outputStyle: 'compressed'}))
-            .pipe(autoprefixer({
-                browsers: ['last 8 versions'],
-                }))
-            .pipe(rename({suffix: '.min'}))
-            .pipe(gulp.dest('app/css'))
-            .pipe(browserSync.reload({stream: true}))
-});
+const { src, dest, watch, parallel, series } = require ('gulp');
 
-gulp.task('script', function(){
-    return gulp.src('app/js/**/*.js')
-            .pipe(browserSync.reload({stream: true}))
-});
+const scss         = require('gulp-sass');
+const concat       = require('gulp-concat');
+const browserSync  = require('browser-sync').create();
+const uglify       = require('gulp-uglify-es').default;
+const autoprefixer = require ('gulp-autoprefixer');
+const imagemin     = require('gulp-imagemin');
+const del          = require('del');
 
-gulp.task('code', function(){
-    return gulp.src('app/*.html')
-            .pipe(browserSync.reload({stream: true}))
-});
 
-gulp.task('browser-sync', function(){
+function browsersync() {
     browserSync.init({
         server : {
-            baseDir: "app"
+            baseDir: 'app/'
         }
-    })
-});
+    });
+}
 
- gulp.task('js', function(){
-     return gulp.src(
-         ['node_modules/@fancyapps/fancybox/dist/jquery.fancybox.js', 
-             'node_modules/slick-carousel/slick/slick.js',
-            'node_modules/mixitup/dist/mixitup.js'])
-         .pipe(concat('libs.min.js'))
-         .pipe(uglifyjs())
-         .pipe(gulp.dest('app/js'))
- });
+function cleanDist() {
+    return del('dist')
+}
 
-gulp.task('watch', function(){
-    gulp.watch('app/scss/**/*.scss', gulp.parallel('scss'))
-    gulp.watch('app/js/**/*.js', gulp.parallel('script'))
-    gulp.watch('app/*.html', gulp.parallel('code'))
-});
+function images() {
+    return src('app/img/**/*')
+    .pipe(imagemin(
+        [
+            imagemin.gifsicle({interlaced: true}),
+            imagemin.mozjpeg({quality: 75, progressive: true}),
+            imagemin.optipng({optimizationLevel: 5}),
+            imagemin.svgo({
+                plugins: [
+                    {removeViewBox: true},
+                    {cleanupIDs: false}
+                ]
+            })
+        ]
+    ))
+    .pipe(dest('dist/img'))
+}
 
-gulp.task('default', gulp.parallel('scss', 'browser-sync', 'watch'));
+function scripts() {
+    return src([
+        'node_modules/jquery/dist/jquery.js',
+        'node_modules/slick-carousel/slick/slick.js',
+        'node_modules/@fancyapps/fancybox/dist/jquery.fancybox.js',
+        'app/js/main.js'
+    ])
+    .pipe(concat('main.min.js'))
+    .pipe(uglify())
+    .pipe(dest('app/js'))
+    .pipe(browserSync.stream())
+}
+
+function styles(){    //styles-просто имя(название) функции
+    return src('app/scss/style.scss')
+        .pipe(scss({outputStyle: 'compressed'})) // outputStyle: 'compressed' нужен для сжатой версии css
+        .pipe(concat('style.min.css')) //может еще и переименовувать файлы
+        .pipe(autoprefixer({
+            overrideBrowserslist: ['last 10 version'],
+            grid: true
+        }))
+        .pipe(dest('app/css'))
+        .pipe(browserSync.stream())
+
+}
+function build () {
+    return src([
+        'app/css/style.min.css',
+        'app/fonts/**/*', // ** - это все папки, /* - это все файлы
+        'app/js/main.min.js',
+        'app/*.html'
+    ], {base:'app'})
+    .pipe(dest('dist'))
+}
+
+function watching(){
+    watch(['app/scss/**/*.scss'], styles );
+    watch(['app/js/**/*.js', '!app/js/main.min.js'], scripts ); // ! - этот знак означает кроме меня
+    watch(['app/*.html']).on('change', browserSync.reload);
+}
+
+exports.styles = styles;
+exports.watching = watching;
+exports.browsersync = browsersync;
+exports.scripts = scripts;
+exports.images = images;
+exports.cleanDist = cleanDist;
+
+exports.build = series(cleanDist, images, build );
+exports.default = parallel(styles ,browsersync, watching, scripts);
