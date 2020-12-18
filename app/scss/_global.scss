@@ -1,0 +1,19 @@
+body{
+    font-size: 15px;
+    line-height: 24px; 
+    font-family: $roboto;
+    color: $text;
+    margin: 0;
+ }
+ ul,li{
+     margin: 0;
+     padding: 0;
+     list-style: none;
+ }
+ a{
+     display: inline-block;
+     text-decoration: none;
+ }
+ img{
+     width: 100%;
+ }
